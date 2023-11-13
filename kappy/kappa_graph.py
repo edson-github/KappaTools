@@ -5,7 +5,7 @@ import re
 ident_re =  r'[_~][a-zA-Z0-9_~+-]+|[a-zA-Z][a-zA-Z0-9_~+-]*'
 line_comment_re = r'//[^\n]*\n'
 non_nested_block_comment_re = r'/\*(?:[^*]*|\*+[^/])*\*/'
-whitespace_re = r'(?:' + line_comment_re + '|' + non_nested_block_comment_re + '|\s)+'
+whitespace_re = f'(?:{line_comment_re}|{non_nested_block_comment_re}' + '|\s)+'
 
 def smallest_non_empty(dic):
     out = None
@@ -13,11 +13,8 @@ def smallest_non_empty(dic):
         va = dic[id]
         l = len(va)
         if l > 0:
-            if out is None:
+            if out is not None and len(out[1]) > l or out is None:
                 out = (id,va)
-            else:
-                if len(out[1]) > l:
-                    out = (id,va)
     return out
 
 class KappaSyntaxError(ValueError):
@@ -56,62 +53,62 @@ class KappaSite:
         )
 
     def is_more_specific_than(self,ref,*,mapping=None,todos=None):
-        if ref._internals is None or \
-           all(x in self._internals for x in ref._internals):
-            if ref._links is None:
-                return True
-            elif ref._links is True:
-                return not (self._links is None or self._links == [])
-            elif type(ref._links) is list :
-                if type(self._links) is list:
-                    if len(ref._links) == 0:
-                        return len(self._links) == 0
-                    else:
-                        assert len(ref._links) == 1, \
-                            "Sigma graph compare not implemented"
-                        if len(self._links) == 1:
-                            assert mapping is not None, "Missing mapping"
-                            (r_ag,r_si) = ref._links[0]
-                            (ag,si) = self._links[0]
-                            ag_dst=mapping.get(r_ag)
-                            if not ag_dst:
-                                ag_dst=ag
-                                mapping[r_ag] = ag
-                                todos.append((r_ag,ag))
-                            return si == r_si and ag == ag_dst
-                        else: return False
-                else: return False
-            else:
-                site = ref._links["site_name"]
-                ag = ref._links["agent_type"]
-                assert False,"Sorry, I can't deal with site_types."
-        else: return False
+        if ref._internals is not None and any(
+            x not in self._internals for x in ref._internals
+        ):
+            return False
+        if ref._links is None:
+            return True
+        elif ref._links is True:
+            return self._links is not None and self._links != []
+        elif type(ref._links) is list:
+            if type(self._links) is not list:
+                return False
+            if len(ref._links) == 0:
+                return len(self._links) == 0
+            assert len(ref._links) == 1, \
+                    "Sigma graph compare not implemented"
+            if len(self._links) != 1:
+                return False
+            assert mapping is not None, "Missing mapping"
+            (r_ag,r_si) = ref._links[0]
+            (ag,si) = self._links[0]
+            ag_dst=mapping.get(r_ag)
+            if not ag_dst:
+                ag_dst=ag
+                mapping[r_ag] = ag
+                todos.append((r_ag,ag))
+            return si == r_si and ag == ag_dst
+        else:
+            site = ref._links["site_name"]
+            ag = ref._links["agent_type"]
+            assert False,"Sorry, I can't deal with site_types."
 
     def is_equal(self,ref,*,mapping=None,todos=None):
-        if (isinstance(ref._internals, type(self._internals))
-            and ref._internals == self._internals):
-            if type(ref._links) is list :
-                if type(self._links) is list:
-                    if len(ref._links) == 0:
-                        return len(self._links) == 0
-                    else:
-                        assert len(ref._links) == 1, \
-                            "Sigma graph compare not implemented"
-                        if len(self._links) == 1:
-                            assert mapping is not None, "Missing mapping"
-                            (r_ag,r_si) = ref._links[0]
-                            (ag,si) = self._links[0]
-                            ag_dst=mapping.get(r_ag)
-                            if not ag_dst:
-                                ag_dst=ag
-                                mapping[r_ag] = ag
-                                todos.append((r_ag,ag))
-                            return si == r_si and ag == ag_dst
-                        else: return False
-                else: return False
-            else:
-                return (isinstance(ref._links,type(self._links))
-                        and ref._links == self._links)
+        if (
+            not isinstance(ref._internals, type(self._internals))
+            or ref._internals != self._internals
+        ):
+            return False
+        if type(ref._links) is not list:
+            return (isinstance(ref._links,type(self._links))
+                    and ref._links == self._links)
+        if type(self._links) is not list:
+            return False
+        if len(ref._links) == 0:
+            return len(self._links) == 0
+        assert len(ref._links) == 1, \
+                "Sigma graph compare not implemented"
+        if len(self._links) == 1:
+            assert mapping is not None, "Missing mapping"
+            (r_ag,r_si) = ref._links[0]
+            (ag,si) = self._links[0]
+            ag_dst=mapping.get(r_ag)
+            if not ag_dst:
+                ag_dst=ag
+                mapping[r_ag] = ag
+                todos.append((r_ag,ag))
+            return si == r_si and ag == ag_dst
         else: return False
 
     @property
@@ -124,13 +121,10 @@ class KappaSite:
         None if there is not.
 
         """
-        if self._internals is None:
+        if self._internals is None or len(self._internals) == 0:
             return None
-        elif len(self._internals) == 0:
-            return None
-        else:
-            assert len(self._internals) == 1
-            return self._internals[0]
+        assert len(self._internals) == 1
+        return self._internals[0]
 
     def has_link(self) -> bool:
         """:returns: whether the link state is neither free nor unspecified?"""
@@ -140,61 +134,66 @@ class KappaSite:
         """:returns: the list of ``KappaAgent`` connected to here in ``complx``
 
         """
-        if type(self._links) is list:
-            return [ complx[a] for (a,s) in self._links ]
-        else:
-            return []
+        return (
+            [complx[a] for (a, s) in self._links]
+            if type(self._links) is list
+            else []
+        )
 
     @staticmethod
     def __str_link_in_complex(line, row, site, trailing, dst):
         out = trailing.pop((((line,row),site),dst),None)
-        if out is None:
-            free = trailing[None]
-            trailing[(dst,((line,row),site))] = free
-            trailing[None] = free+1
-            return str(free)
-        else:
+        if out is not None:
             return str(out)
+        free = trailing[None]
+        trailing[(dst,((line,row),site))] = free
+        trailing[None] = free+1
+        return str(free)
 
     def __str_internals(self):
         if self._internals is None:
-            if self._future_internal is None: out = ""
-            else: out = "{#/"+str(self._future_internal)+"}"
-            return out
+            return (
+                ""
+                if self._future_internal is None
+                else "{#/" + str(self._future_internal) + "}"
+            )
         elif len(self._internals) == 0:
             assert(self._future_internal is None)
             return ""
         else:
             head = "{"+ ", ".join(self._internals)
             if self._future_internal is None: tail = "}"
-            else: tail = "/"+str(self._future_internal)+"}"
+            else:else
+                tail = f"/{str(self._future_internal)}" + "}"
             return head+tail
 
     def _str_in_complex(self, line, row, site, trailing):
         if self._future_link is None: mod = "]"
         elif self._future_link is False: mod = "/.]"
-        else: mod = "/"+str(self.future_link)+"]"
+        else:else
+            mod = f"/{str(self.future_link)}]"
 
         if self._links is None:
             if self._future_link is None: return self.__str_internals()
-            else: return "[#"+mod+self.__str_internals()
-        elif self._links is True: return "[_"+mod+self.__str_internals()
+            else:else
+                return f"[#{mod}{self.__str_internals()}"
+        elif self._links is True:
+            return f"[_{mod}{self.__str_internals()}"
         elif type(self._links) is list:
-            if len(self._links) == 0: return "[."+mod+self.__str_internals()
-            else:
-                links = ", ".join(
-                    [ self.__str_link_in_complex(line, row, site, trailing, x)
-                      for x in self._links ] )
-                return "["+links+mod+self.__str_internals()
+            if len(self._links) == 0:
+                return f"[.{mod}{self.__str_internals()}"
+            links = ", ".join(
+                [ self.__str_link_in_complex(line, row, site, trailing, x)
+                  for x in self._links ] )
+            return f"[{links}{mod}{self.__str_internals()}"
         else:
             site = self._links["site_name"]
             ag = self._links["agent_type"]
-            return "["+site+"."+ag+links+mod+self.__str_internals()
+            return f"[{site}.{ag}{links}{mod}{self.__str_internals()}"
 
     @staticmethod
     def __get_site_name(complx,x):
-        if type(x[0]) is list: ag = complx[x[0][0]][x[0][1]]
-        else: ag = complx[x[0]]
+        ag = complx[x[0][0]][x[0][1]] if type(x[0]) is list else complx[x[0]]
         return ag["node_sites"][x[1]]["site_name"]
 
     @classmethod
@@ -203,18 +202,18 @@ class KappaSite:
             raise Exception("Can only handle port sites for now")
         raw_links = data[1]["port_links"]
         if type(raw_links) is not list: links = raw_links
+        elif in_1d is None:
+            links = (
+                [(tuple(x[0]), cls.__get_site_name(complx, x)) for x in raw_links]
+                if len(raw_links) > 0 and type(raw_links[0][0]) is list
+                else [
+                    ((0, x[0]), cls.__get_site_name(complx, x)) for x in raw_links
+                ]
+            )
         else:
-            if in_1d is None:
-                if len(raw_links) > 0 and type(raw_links[0][0]) is list:
-                    links = [ (tuple(x[0]),cls.__get_site_name(complx,x))
-                              for x in raw_links ]
-                else:
-                    links = [ ((0,x[0]),cls.__get_site_name(complx,x))
-                              for x in raw_links ]
-            else:
-                links = [ ((0,x[0]),cls.__get_site_name(complx,x)) if in_1d
-                          else (tuple(x[0]),cls.__get_site_name(complx,x))
-                          for x in raw_links ]
+            links = [ ((0,x[0]),cls.__get_site_name(complx,x)) if in_1d
+                      else (tuple(x[0]),cls.__get_site_name(complx,x))
+                      for x in raw_links ]
         return cls(links=links,internals=data[1]["port_states"])
 
     @classmethod
@@ -222,17 +221,17 @@ class KappaSite:
                                position, dangling, completed):
         # define patterns that make up a site
         int_state_pat = \
-            r'(?: ?{ ?(' +ident_re+ r'|#) ?(?: ?(/ ?)(' +ident_re+ r') ?)?} ?)?'
+                r'(?: ?{ ?(' +ident_re+ r'|#) ?(?: ?(/ ?)(' +ident_re+ r') ?)?} ?)?'
         bnd_state_pat = r' ?\[ ?(.|_|#|\d+) ?(?:(/ ?)(.|\d+) ?)?\] ?'
-        port_pat = r'^' + int_state_pat + bnd_state_pat + int_state_pat + r'$'
+        port_pat = f'^{int_state_pat}{bnd_state_pat}{int_state_pat}$'
         # parse assuming full site declaration, with bond state declared
         g = re.match(port_pat, expression)
         # if that fails, try parsing with bond state declared as a wildcard
         if not g:
-            g = re.match(port_pat, expression + '[#]')
+            g = re.match(port_pat, f'{expression}[#]')
         # if that fails, throw an error
         if not g:
-            raise KappaSyntaxError('Invalid site declaration <'+expression+'>')
+            raise KappaSyntaxError(f'Invalid site declaration <{expression}>')
         # figure out what type of bond operation is being performed
         if g.group(4) == '.':
             links = []
@@ -253,10 +252,9 @@ class KappaSite:
         #    self._future_link = g.group(6)
         # figure out what type of internal state operation is being performed
         internals = None
-        if g.group(1) and not g.group(1) == '#':
+        if g.group(1) and g.group(1) != '#':
             internals = [ g.group(1) ]
-        #self._future_internal = g.group(3) if g.group(3) else ''
-        elif g.group(7) and not g.group(7) == '#':
+        elif g.group(7) and g.group(7) != '#':
             internals = [ g.group(7) ]
         #self._future_int_state = g.group(9) if g.group(9) else ''
         return cls(links=links,internals=internals)
@@ -279,11 +277,7 @@ class KappaAgent(abc.Sequence):
         self._sites = sites
 
     def __repr__(self):
-        return "KappaAgent({},{},{})".format(
-            repr(self._type),
-            repr(self._node_id),
-            repr(self._sites)
-        )
+        return f"KappaAgent({repr(self._type)},{repr(self._node_id)},{repr(self._sites)})"
 
     def __len__(self):
         return len(self._sites)
@@ -335,62 +329,56 @@ class KappaAgent(abc.Sequence):
     def _str_in_complex(self, line, row, trailing):
         sites = [ n + self._sites[n]._str_in_complex(line, row, n, trailing)
                   for n in self._sites ]
-        if self._node_id is not None:
-            witness = "x"+str(self._node_id)+":"
-        else:
-            witness = ""
+        witness = f"x{str(self._node_id)}:" if self._node_id is not None else ""
         return witness + self._type + "(" + " ".join(sites) + ")"
 
     @classmethod
     def from_JSONDecoder_in_complex(cls,data,complx,*,in_1d):
-        if data is None: return None
-        else:
-            sites = dict([
-                x["site_name"],
-                KappaSite.from_JSONDecoder_in_complex(x["site_type"],
-                                                      complx, in_1d=in_1d)
-            ] for x in data["node_sites"])
-            return cls(data["node_type"],data.get("node_id"),sites)
+        if data is None:
+            if data is None: return None
+        sites = dict([
+            x["site_name"],
+            KappaSite.from_JSONDecoder_in_complex(x["site_type"],
+                                                  complx, in_1d=in_1d)
+        ] for x in data["node_sites"])
+        return cls(data["node_type"],data.get("node_id"),sites)
 
     @classmethod
     def from_string_in_complex(cls, expression: str,
                                position, dangling, completed):
         if re.match(r'^\.$', expression.strip()):
             return None
-        else:
-            # Check if kappa expression's name & overall structure is valid
-            agent_name_pat = ident_re
-            agent_sign_pat = r'\(([^()]*)\)'
-            agent_oper_pat = r'(\+|-)?'
-            agent_pat = \
-                r'^(' +agent_name_pat+ r')' +agent_sign_pat+agent_oper_pat+ r'$'
-            matches = re.match(agent_pat, expression.strip())
-            if not matches:
-                matches = re.match(agent_pat, expression.strip() + '()')
-                if not matches:
-                    raise KappaSyntaxError('Invalid agent declaration <' +
-                                           expression + '>')
+        # Check if kappa expression's name & overall structure is valid
+        agent_name_pat = ident_re
+        agent_sign_pat = r'\(([^()]*)\)'
+        agent_oper_pat = r'(\+|-)?'
+        agent_pat = f'^({agent_name_pat}){agent_sign_pat}{agent_oper_pat}$'
+        matches = re.match(agent_pat, expression.strip())
+        if not matches:
+            matches = re.match(agent_pat, f'{expression.strip()}()')
+        if not matches:
+            raise KappaSyntaxError(f'Invalid agent declaration <{expression}>')
 
-            # process & assign to variables
-            agent_name = matches.group(1)
-            # process agent signature
-            ag_signature = matches.group(2)
-            if ag_signature == '':
-                site_list = []
-            else:
-                site_block_re = r'('+ident_re+')((?:\[[^\]]+\]|{[^}]+})+) ?,? ?'
-                site_list = re.finditer(site_block_re,ag_signature)
-            agent_signature = {}
-            for id, match in enumerate(site_list):
-                name=match.group(1)
-                site = KappaSite.from_string_in_complex(match.group(2),
-                                                        (position,name),
-                                                        dangling,
-                                                        completed)
-                agent_signature[name]=site
-            # process abundance operator, if present
-            #abundance_change = matches.group(3) if matches.group(3) else ''
-            return cls(agent_name,None,agent_signature)
+        # process & assign to variables
+        agent_name = matches.group(1)
+        # process agent signature
+        ag_signature = matches.group(2)
+        if ag_signature == '':
+            site_list = []
+        else:
+            site_block_re = f'({ident_re}' + ')((?:\[[^\]]+\]|{[^}]+})+) ?,? ?'
+            site_list = re.finditer(site_block_re,ag_signature)
+        agent_signature = {}
+        for match in site_list:
+            name=match.group(1)
+            site = KappaSite.from_string_in_complex(match.group(2),
+                                                    (position,name),
+                                                    dangling,
+                                                    completed)
+            agent_signature[name]=site
+        # process abundance operator, if present
+        #abundance_change = matches.group(3) if matches.group(3) else ''
+        return cls(agent_name,None,agent_signature)
 
 
 class KappaComplexIterator(abc.Iterator):
@@ -442,17 +430,13 @@ class KappaComplex(abc.Sequence):
     def __init__(self, agents):
         self._agents = agents
         self._nodes_by_type = {}
-        i=0
-        for line in agents:
-            j=0
-            for el in line:
+        for i, line in enumerate(agents):
+            for j, el in enumerate(line):
                 if el:
                     self._nodes_by_type.setdefault(el.get_type(),[]).append((i,j))
-                j += 1
-            i += 1
 
     def __repr__(self):
-        return "KappaComplex({})".format(repr(self._agents))
+        return f"KappaComplex({repr(self._agents)})"
 
     def __str__(self):
         trailing = { None: 0 }
@@ -463,10 +447,10 @@ class KappaComplex(abc.Sequence):
         return "\\ ".join(map(", ".join,lines))
 
     def __getitem__(self,key):
-        if type(key) is tuple:
-            (l,r) = key
-            return self._agents[l][r]
-        else: return self._agents[0][key]
+        if type(key) is not tuple:
+            return self._agents[0][key]
+        (l,r) = key
+        return self._agents[l][r]
 
     def __iter__(self):
         return KappaComplexIterator(self._agents,with_key=False)
@@ -499,7 +483,7 @@ class KappaComplex(abc.Sequence):
     def contains_at_pos(self,id,ref,ref_id):
         mapping={ ref_id : id }
         todos=[(ref_id,id)]
-        while len(todos) > 0:
+        while todos:
             (rag,ag)=todos.pop()
             if not self[ag].is_more_specific_than(ref[rag],
                                                   mapping=mapping,
@@ -510,7 +494,7 @@ class KappaComplex(abc.Sequence):
     def __eq_rooted(self,id,ref,ref_id):
         mapping={ ref_id : id }
         todos=[(ref_id,id)]
-        while len(todos) > 0:
+        while todos:
             (rag,ag)=todos.pop()
             if not self[ag].is_equal(ref[rag], mapping=mapping, todos=todos):
                 return None
@@ -529,22 +513,22 @@ class KappaComplex(abc.Sequence):
                  if x ]
 
     def __contains__(self,pattern):
-        return not len(self.find_pattern(pattern)) == 0
+        return len(self.find_pattern(pattern)) != 0
 
-    def __same_sum_formula(a,b):
-        if len(a._nodes_by_type) != len(b._nodes_by_type): return False
-        for ty in a._nodes_by_type:
-            if (len(b._nodes_by_type.get(ty,allocated_once_for_all_empty_list))
-                != len(a._nodes_by_type[ty])):
-                return False
-        return True
+    def __same_sum_formula(self, b):
+        if len(self._nodes_by_type) != len(b._nodes_by_type): return False
+        return all(
+            len(b._nodes_by_type.get(ty, allocated_once_for_all_empty_list))
+            == len(self._nodes_by_type[ty])
+            for ty in self._nodes_by_type
+        )
 
-    def __eq__(a,b):
-        if a.__same_sum_formula(b):
-            ag_ty,ref_ids = smallest_non_empty(a._nodes_by_type)
+    def __eq__(self, b):
+        if self.__same_sum_formula(b):
+            ag_ty,ref_ids = smallest_non_empty(self._nodes_by_type)
             ref_id=ref_ids[0]
             for cand in b._nodes_by_type[ag_ty]:
-                if b.__eq_rooted(cand,a,ref_id): return True
+                if b.__eq_rooted(cand, self, ref_id): return True
         return False
 
     @classmethod
@@ -567,12 +551,13 @@ class KappaComplex(abc.Sequence):
         # remove comments, new_lines, multiple spaces
         expression = re.sub(whitespace_re, ' ', expression)
         # get the set of agents making up this complex
-        agent_name_pat = r' ?' + ident_re
+        agent_name_pat = f' ?{ident_re}'
         agent_sign_pat = r' ?\([^()]*\)'
         matches = re.findall(agent_name_pat+agent_sign_pat, expression.strip())
         if len(matches) == 0:
-            raise KappaSyntaxError('Complex <' + self._raw_expression +
-                                   '> appears to have zero agents.')
+            raise KappaSyntaxError(
+                f'Complex <{self._raw_expression}> appears to have zero agents.'
+            )
         agent_list = []
         dangling = {}
         completed = {}
@@ -581,9 +566,10 @@ class KappaComplex(abc.Sequence):
                                                       dangling,
                                                       completed)
             agent_list.append(agent)
-        if len(dangling) != 0:
-            raise KappaSyntaxError('Dangling link <' + str(dangling.popitem()) +
-                                   '> in complex <' + expression + '>.')
+        if dangling:
+            raise KappaSyntaxError(
+                f'Dangling link <{str(dangling.popitem())}> in complex <{expression}>.'
+            )
         for (((col,row),si),dst) in completed.items():
             site = agent_list[row][si]
             agent_list[row]._sites[si] = KappaSite(links=[dst],
@@ -604,12 +590,7 @@ class KappaSnapshot:
         self._tokens = tokens
 
     def __repr__(self):
-        return "KappaSnapshot(time={},event={},complexes={},tokens={})".format(
-            repr(self._time),
-            repr(self._event),
-            repr(self._complexes),
-            repr(self._tokens)
-        )
+        return f"KappaSnapshot(time={repr(self._time)},event={repr(self._event)},complexes={repr(self._complexes)},tokens={repr(self._tokens)})"
 
     def __str__(self):
         event = "// Snapshot [Event: {0:d}]\n".format(self._event)
@@ -704,10 +685,7 @@ class KappaSnapshot:
 
     def get_total_mass(self) -> int:
         """Get the total number of agents"""
-        out = 0
-        for (abundance,complx) in self._complexes:
-            out += abundance * len(complx)
-        return out
+        return sum(abundance * len(complx) for abundance, complx in self._complexes)
 
     @property
     def tokens(self):

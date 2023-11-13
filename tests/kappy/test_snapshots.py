@@ -19,10 +19,14 @@ class KappaSnapshotTest(unittest.TestCase):
         assert(kappy.KappaComplex.from_string("A(a[_])") in
                kappy.KappaComplex.from_string("A(b[1] a[2]), A(b[3] a[2]), B(a[1] x{p}), B(a[3] x{u})"))
         # negative
-        assert(not kappy.KappaComplex.from_string("A(b[.])") in
-               kappy.KappaComplex.from_string("A(b[1] a[2]), A(b[3] a[2]), B(a[1] x{p}), B(a[3] x{u})"))
-        assert(not kappy.KappaComplex.from_string("A(b[.])") in
-               kappy.KappaComplex.from_string("C(b[.])"))
+        assert kappy.KappaComplex.from_string(
+            "A(b[.])"
+        ) not in kappy.KappaComplex.from_string(
+            "A(b[1] a[2]), A(b[3] a[2]), B(a[1] x{p}), B(a[3] x{u})"
+        )
+        assert kappy.KappaComplex.from_string(
+            "A(b[.])"
+        ) not in kappy.KappaComplex.from_string("C(b[.])")
         # several agents
         nasty=kappy.KappaComplex.from_string("A(b[1] a[2]), A(b[3] a[2]), B(a[1] x{p}), B(a[3] x{u})")
         assert(len(nasty.find_pattern(kappy.KappaComplex.from_string("A(b[2]), B(a[2] x)"))) == 2)
@@ -43,14 +47,16 @@ class KappaSnapshotTest(unittest.TestCase):
             re_entry = repr(snap)
             # get number of complexes
             num_complexes = len(snap.complexes)
-            assert(num_complexes == 10), "Expected 10 complexes in %s" %(fname)
+            assert (num_complexes == 10), f"Expected 10 complexes in {fname}"
             # get the most abundant complex, which should exist in 10 copies
             big_size,[(big_abun, big_comp)] = snap.get_largest_complexes()
             # check that the biggest complex has abundance of 1
-            assert(big_abun == 1), \
-                "Expected biggest complex %s to have abundance of 1." %(big_comp)
+            assert (
+                big_abun == 1
+            ), f"Expected biggest complex {big_comp} to have abundance of 1."
             small_abun,[small_comp] = snap.get_most_abundant_complexes()
             # check that the smallest complex has abundance of 10
-            assert(small_abun == 10), \
-                "Expected smallest complex %s to have abundance of 10." %(small_comp)
+            assert (
+                small_abun == 10
+            ), f"Expected smallest complex {small_comp} to have abundance of 10."
             return

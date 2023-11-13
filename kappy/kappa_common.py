@@ -188,9 +188,7 @@ class PlotLimit(object):
         else:
             url_points = ""
 
-        url_plot_limit = "{0}{1}".format(url_offset,
-                                         url_points)
-        return url_plot_limit
+        return "{0}{1}".format(url_offset, url_points)
 
     def toJSON(self):
         return {"offset": self.offset,
@@ -211,7 +209,7 @@ class KappaApi(ABC):
         return
 
     @classmethod
-    def _fix_docs(this_abc, child_class):
+    def _fix_docs(cls, child_class):
         """Make api method docs inheritted.
 
         Specifically, insepect.getdoc will return values inheritted
@@ -222,37 +220,33 @@ class KappaApi(ABC):
         if sys.version_info >= (3, 5):
             return child_class
 
-        if not issubclass(child_class, this_abc):
+        if not issubclass(child_class, cls):
             raise KappaError('Cannot fix docs of class that is not decendent.')
 
         # This method is modified from solution given in
         # https://stackoverflow.com/a/8101598/8863865
         for name, child_func in vars(child_class).items():
             if callable(child_func) and not child_func.__doc__:
-                if name in this_abc.__abstractmethods__:
-                    parent_func = getattr(this_abc, name)
+                if name in cls.__abstractmethods__:
+                    parent_func = getattr(cls, name)
                     child_func.__doc__ = parent_func.__doc__
         return child_class
 
     @classmethod
     def make_unique_id(cls, name):
-        return "%s-%s" % (name, uuid.uuid1())
+        return f"{name}-{uuid.uuid1()}"
 
     def add_model_string(self, model_str, position=1, file_id=None):
         """Add a kappa model given in a string to the project."""
         if file_id is None:
             file_id = self.make_unique_id('inlined_input')
-        ret_data = self.file_create(File.from_string(model_str, position,
-                                                     file_id))
-        return ret_data
+        return self.file_create(File.from_string(model_str, position, file_id))
 
     def add_model_file(self, model_fpath, position=1, file_id=None):
         """Add a kappa model from a file at given path to the project."""
         if file_id is None:
             file_id = self.make_unique_id('file_input')
-        ret_data = self.file_create(File.from_file(model_fpath, position,
-                                                   file_id))
-        return ret_data
+        return self.file_create(File.from_file(model_fpath, position, file_id))
 
     def set_default_sim_param(self, *args, **kwargs):
         """Set the simulation default simulation parameters.

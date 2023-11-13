@@ -41,10 +41,7 @@ class KappaRest(KappaApi):
                   "project was already deleted.")
 
     def _dispatch(self, method, sub_url=None, data=None):
-        if sub_url is not None:
-            url = path.join(self.url, sub_url)
-        else:
-            url = self.url
+        url = path.join(self.url, sub_url) if sub_url is not None else self.url
         if data is not None:
             data = json.dumps(data)
         try:
@@ -121,7 +118,7 @@ class KappaRest(KappaApi):
     # Standardized API methods. Docs are provided by parent.
 
     def project_parse(self, sharing_level="compatible_patterns", **kwargs):
-        overwrites = '&'.join('%s=%s' % (key, value) for (key, value) in kwargs.items())
+        overwrites = '&'.join(f'{key}={value}' for (key, value) in kwargs.items())
         return self._post(self.in_project('parse', '?'.join([sharing_level, overwrites])))
 
     def project_overwrite(self, ast, file_id="model.ka"):
@@ -152,11 +149,8 @@ class KappaRest(KappaApi):
         return self._get(self.in_project('simulation', 'logmessages'))
 
     def simulation_plot(self, limit=None):
-        if limit is not None:
-            parameter = limit.toURL()
-        else:
-            parameter = PlotLimit().toURL()
-        plot_query = "plot?%s" % parameter
+        parameter = limit.toURL() if limit is not None else PlotLimit().toURL()
+        plot_query = f"plot?{parameter}"
         return self._get(self.in_project('simulation', plot_query))
 
     def simulation_info(self):
@@ -204,11 +198,11 @@ class KappaRest(KappaApi):
         return self._get(self.in_project('analyses', 'constraints'))
 
     def analyses_contact_map(self, accuracy=None):
-        cmd = "contact_map?accuracy=%s" % accuracy
+        cmd = f"contact_map?accuracy={accuracy}"
         return self._get(self.in_project('analyses', cmd))
 
     def analyses_influence_map(self, accuracy=None):
-        cmd = "influence_map?accuracy=%s" % accuracy
+        cmd = f"influence_map?accuracy={accuracy}"
         return self._get(self.in_project('analyses', cmd))
 
     def analyses_potential_polymers(self):

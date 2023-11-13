@@ -24,7 +24,7 @@ def find_agent_bin():
         if not os.path.exists(bin_dir):
             continue
         contents = os.listdir(bin_dir)
-        if all([agent in contents for agent in agent_names]):
+        if all(agent in contents for agent in agent_names):
             break
     return bin_dir
 
@@ -56,7 +56,7 @@ class KappaStd(KappaApi):
                     "--delimiter",
                     "\\x{:02x}".format(ord(self.delimiter)) ]
         if args:
-            switch_args = switch_args + args
+            switch_args += args
         self.lock = threading.Lock()
         self.message_id = 0
         self.switch_agent = subprocess.Popen(switch_args,
@@ -86,7 +86,8 @@ class KappaStd(KappaApi):
             buff.extend(c)
             c = agent_to_read.stdout.read1(DEFAULT_BUFFER_SIZE)
         # strip the end character
-        if c: buff.extend(c[0:-1])
+        if c:
+            buff.extend(c[:-1])
         return buff
 
     def _dispatch(self, data):
@@ -168,10 +169,7 @@ class KappaStd(KappaApi):
         return self._dispatch(["SimulationDetailLogMessage"])
 
     def simulation_plot(self, limit=None):
-        if limit is not None:
-            parameter = limit.toJSON()
-        else:
-            parameter = PlotLimit().toJSON()
+        parameter = limit.toJSON() if limit is not None else PlotLimit().toJSON()
         return self._dispatch(["SimulationDetailPlot", parameter])
 
     def simulation_snapshot(self, snapshot_id):

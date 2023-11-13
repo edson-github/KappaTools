@@ -20,13 +20,7 @@ def main():
     plot_period = 0.1
     seed = None
 
-    help_line = (cmd +
-                 ' -k <kappafile> ' +
-                 ' -u <url or path to stdsim> ' +
-                 ' -t <max_time> ' +
-                 ' -e <max_events> ' +
-                 ' -pp <plot_period> ' +
-                 ' -s <random_seed> ')
+    help_line = f'{cmd} -k <kappafile>  -u <url or path to stdsim>  -t <max_time>  -e <max_events>  -pp <plot_period>  -s <random_seed> '
     try:
         opts, args = getopt.getopt(argv,
                                    "h:k:u:t:e:pp:s",
@@ -50,9 +44,9 @@ def main():
         elif opt in ("-u", "--url"):
             url = arg
         elif opt in ("-t", "--max_time"):
-            pause_condition = "[T]>"+arg+" || "+pause_condition
+            pause_condition = f"[T]>{arg} || {pause_condition}"
         elif opt in ("-e", "--max_events"):
-            pause_condition = "[E]>"+arg+" || "+pause_condition
+            pause_condition = f"[E]>{arg} || " + pause_condition
         elif opt in ("-pp", "--plot_period"):
             plot_period = float(arg)
         elif opt in ("-s", "--seed"):
@@ -115,7 +109,6 @@ def main():
     except kappy.KappaError as exception:
         print(exception.errors)
     return None
-    None
 
 if __name__ == "__main__":
     main()
