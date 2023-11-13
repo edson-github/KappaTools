@@ -10,13 +10,17 @@ import kappy
 
 def find_path(top_dir, fname, force_type=None):
     """Find the path a given file somewhere bellow the top_dir."""
-    for dirpath, sub_dirs, file_contents in walk(top_dir):
-        if fname in file_contents and not force_type == 'directory':
-            return path.join(dirpath, fname)
-        elif fname in sub_dirs and not force_type == 'file':
-            return path.join(dirpath, fname)
-
-    return None
+    return next(
+        (
+            path.join(dirpath, fname)
+            for dirpath, sub_dirs, file_contents in walk(top_dir)
+            if fname in file_contents
+            and force_type != 'directory'
+            or fname in sub_dirs
+            and force_type != 'file'
+        ),
+        None,
+    )
 
 
 MODELS_DIR = find_path(kappy.kappa_common.KASIM_DIR, 'examples', force_type='directory')
@@ -71,7 +75,7 @@ class _KappaClientTest(unittest.TestCase):
         runtime = self.getRuntime()
 
         file_id = runtime.make_unique_id('abc-pert')
-        print("Adding model file %s..." % file_id)
+        print(f"Adding model file {file_id}...")
         fpath = path.join(MODELS_DIR, "abc-pert.ka")
         runtime.add_model_file(fpath, 0, file_id)
 
@@ -134,7 +138,7 @@ class _KappaClientTest(unittest.TestCase):
         runtime = self.getRuntime()
 
         model_file= "abc-cflow.ka"
-        print("Adding model file %s..." % model_file)
+        print(f"Adding model file {model_file}...")
         fpath = path.join(MODELS_DIR, model_file)
         runtime.add_model_file(fpath)
 
@@ -162,7 +166,7 @@ class _KappaClientTest(unittest.TestCase):
         runtime = self.getRuntime()
 
         file_id = runtime.make_unique_id('abc-pert')
-        print("Adding model file %s..." % file_id)
+        print(f"Adding model file {file_id}...")
         fpath = path.join(MODELS_DIR, "abc-pert.ka")
         runtime.add_model_file(fpath, 0, file_id)
 
@@ -183,7 +187,7 @@ class _KappaClientTest(unittest.TestCase):
         print("Getting runtime...")
         runtime = self.getRuntime()
 
-        print("Adding model file %s..." % "abc.ka")
+        print('Adding model file abc.ka...')
         fpath = path.join(MODELS_DIR, "abc-pert.ka")
         runtime.add_model_file(fpath, 0)
 
@@ -199,5 +203,5 @@ class _KappaClientTest(unittest.TestCase):
 def run_nose(fname):
     import nose
     fpath = path.abspath(fname)
-    print("Running nose for package: %s" % fname)
+    print(f"Running nose for package: {fname}")
     return nose.run(argv=[sys.argv[0], fpath] + sys.argv[1:])
